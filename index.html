@@ -26,18 +26,19 @@ body {
 
 .top-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 8px;
 }
 
 .name {
-  width: 60px;
+  flex: 1;
   background: transparent;
   border: none;
   color: white;
   font-weight: bold;
   font-size: 18px;
+  outline: none;
 }
 
 .level {
@@ -205,7 +206,7 @@ function createEnemy(i) {
 
   enemy.innerHTML = `
     <div class="top-row">
-      <input class="name" maxlength="3" value="${saved.name}">
+      <input class="name" value="${saved.name}">
       <div class="level">
         <button class="minus">-</button>
         <span class="lvl">L${level}</span>
@@ -347,3 +348,4 @@ for(let i=0;i<5;i++){
 </script>
 </body>
 </html>
+
