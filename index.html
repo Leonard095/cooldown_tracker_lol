@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CD Tracker</title>
+
 <style>
 body {
   margin: 0;
@@ -20,15 +21,22 @@ body {
   background: #161a22;
   padding: 14px;
   margin-bottom: 14px;
-  border-radius: 12px;
-  font-size: 16px;
+  border-radius: 14px;
 }
 
 .top-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+.champ-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: #0f141c;
+  object-fit: cover;
 }
 
 .name {
@@ -76,13 +84,20 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
-.spell-name {
+.spell-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
-  font-size: 18px;
-  font-weight: 600;
+}
+
+.spell-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
 }
 
 .timer {
@@ -91,122 +106,143 @@ body {
   font-weight: bold;
 }
 
-.ready {
-  color: #22c55e;
-}
+.ready { color: #22c55e; }
+.active { color: #ef4444; }
+.warning { color: orange; }
 
-.active {
-  color: #ef4444;
-}
-
-.warning {
-  color: orange;
-}
 </style>
 </head>
 <body>
+
 <div class="container" id="app"></div>
 
 <script>
+
+let patch = "14.1.1"; // fallback
+
+fetch('https://ddragon.leagueoflegends.com/api/versions.json')
+  .then(res => res.json())
+  .then(data => {
+    if (Array.isArray(data) && data.length > 0) {
+      patch = data[0];
+      // Refresh the page so icons update
+      console.log("Using patch:", patch);
+      localStorage.removeItem("cdTracker"); // optionally clear stored icons first
+      location.reload();
+    }
+  }).catch(err => {
+    console.warn("Could not fetch latest patch, using fallback:", patch);
+  });
+
 const spellList = [
-  { name: "Flash", cd: 300 },
-  { name: "Ignite", cd: 180 },
-  { name: "Teleport", cd: 0 },
-  { name: "Heal", cd: 240 },
-  { name: "Exhaust", cd: 240 },
-  { name: "Ghost", cd: 210 },
-  { name: "Cleanse", cd: 210 },
-  { name: "Smite", cd: 90 }
+  { name: "Flash", cd: 300, icon: "SummonerFlash.png" },
+  { name: "Ignite", cd: 180, icon: "SummonerDot.png" },
+  { name: "Teleport", cd: 0, icon: "SummonerTeleport.png" },
+  { name: "Heal", cd: 240, icon: "SummonerHeal.png" },
+  { name: "Exhaust", cd: 240, icon: "SummonerExhaust.png" },
+  { name: "Ghost", cd: 210, icon: "SummonerHaste.png" },
+  { name: "Cleanse", cd: 210, icon: "SummonerBoost.png" },
+  { name: "Smite", cd: 90, icon: "SummonerSmite.png" }
 ];
 
-function teleportBase(level) {
-  if (level <= 6) return 360;
-  if (level <= 10) return 300;
+function champIconURL(name) {
+  const formatted = name.replace(/\s/g,'');
+  return `https://ddragon.leagueoflegends.com/cdn/${patch}/img/champion/${formatted}.png`;
+}
+
+function spellIconURL(file) {
+  return `https://ddragon.leagueoflegends.com/cdn/${patch}/img/spell/${file}`;
+}
+
+function teleportBase(level){
+  if(level<=6)return 360;
+  if(level<=10)return 300;
   return 240;
 }
 
-function adjustedCooldown(base, haste) {
-  return Math.round(base * (100 / (100 + haste)));
+function adjustedCooldown(base,haste){
+  return Math.round(base*(100/(100+haste)));
 }
 
-function formatTime(s) {
-  const m = Math.floor(s / 60).toString().padStart(2,'0');
-  const sec = (s % 60).toString().padStart(2,'0');
+function formatTime(s){
+  const m=Math.floor(s/60).toString().padStart(2,'0');
+  const sec=(s%60).toString().padStart(2,'0');
   return `${m}:${sec}`;
 }
 
-class SpellTimer {
-  constructor(savedRemaining = 0) {
-    this.remaining = savedRemaining;
-    this.interval = null;
+class SpellTimer{
+  constructor(saved=0){
+    this.remaining=saved;
+    this.interval=null;
   }
 
-  start(duration, update) {
-    this.remaining = duration;
+  start(duration,update){
+    this.remaining=duration;
     this.tick(update);
   }
 
-  tick(update) {
+  tick(update){
     clearInterval(this.interval);
-    this.interval = setInterval(() => {
-      if (this.remaining > 0) {
+    this.interval=setInterval(()=>{
+      if(this.remaining>0){
         this.remaining--;
         update();
         saveState();
-      } else {
+      }else{
         clearInterval(this.interval);
         update();
         saveState();
       }
-    }, 1000);
+    },1000);
   }
 
-  reset(update) {
+  reset(update){
     clearInterval(this.interval);
-    this.remaining = 0;
+    this.remaining=0;
     update();
     saveState();
   }
 }
 
-let enemiesState = JSON.parse(localStorage.getItem("cdTracker")) || [];
+let enemiesState=JSON.parse(localStorage.getItem("cdTracker"))||[];
 
-function saveState() {
-  localStorage.setItem("cdTracker", JSON.stringify(enemiesState));
+function saveState(){
+  localStorage.setItem("cdTracker",JSON.stringify(enemiesState));
 }
 
-function createEnemy(i) {
+function createEnemy(i){
 
-  const saved = enemiesState[i] || {
-    name: "E" + (i+1),
-    level: 1,
-    boots: false,
-    cosmic: false,
-    crimson: false,
-    spellIndex1: 0,
-    spellIndex2: 1,
-    remaining1: 0,
-    remaining2: 0
+  const saved=enemiesState[i]||{
+    name:"",
+    level:1,
+    boots:false,
+    cosmic:false,
+    crimson:false,
+    spellIndex1:0,
+    spellIndex2:1,
+    remaining1:0,
+    remaining2:0
   };
 
-  enemiesState[i] = saved;
+  enemiesState[i]=saved;
 
-  let level = saved.level;
-  let boots = saved.boots;
-  let cosmic = saved.cosmic;
-  let crimson = saved.crimson;
-  let spellIndex1 = saved.spellIndex1;
-  let spellIndex2 = saved.spellIndex2;
+  let level=saved.level;
+  let boots=saved.boots;
+  let cosmic=saved.cosmic;
+  let crimson=saved.crimson;
+  let spellIndex1=saved.spellIndex1;
+  let spellIndex2=saved.spellIndex2;
 
-  const timer1 = new SpellTimer(saved.remaining1);
-  const timer2 = new SpellTimer(saved.remaining2);
+  const timer1=new SpellTimer(saved.remaining1);
+  const timer2=new SpellTimer(saved.remaining2);
 
-  const enemy = document.createElement("div");
-  enemy.className = "enemy";
+  const enemy=document.createElement("div");
+  enemy.className="enemy";
 
-  enemy.innerHTML = `
+  enemy.innerHTML=`
     <div class="top-row">
-      <input class="name" value="${saved.name}">
+      <img class="champ-icon">
+      <input class="name" value="${saved.name}" placeholder="Champion">
       <div class="level">
         <button class="minus">-</button>
         <span class="lvl">L${level}</span>
@@ -220,76 +256,90 @@ function createEnemy(i) {
     </div>
 
     <div class="spell-row">
-      <span class="spell-name s1"></span>
+      <div class="spell-left s1">
+        <img class="spell-icon i1">
+      </div>
       <span class="timer t1">Ready</span>
     </div>
 
     <div class="spell-row">
-      <span class="spell-name s2"></span>
+      <div class="spell-left s2">
+        <img class="spell-icon i2">
+      </div>
       <span class="timer t2">Ready</span>
     </div>
   `;
 
-  const nameInput = enemy.querySelector(".name");
-  const lvlSpan = enemy.querySelector(".lvl");
-  const s1 = enemy.querySelector(".s1");
-  const s2 = enemy.querySelector(".s2");
-  const t1 = enemy.querySelector(".t1");
-  const t2 = enemy.querySelector(".t2");
+  const champIcon=enemy.querySelector(".champ-icon");
+  const nameInput=enemy.querySelector(".name");
+  const lvlSpan=enemy.querySelector(".lvl");
+  const t1=enemy.querySelector(".t1");
+  const t2=enemy.querySelector(".t2");
+  const i1=enemy.querySelector(".i1");
+  const i2=enemy.querySelector(".i2");
 
-  function haste() {
+  function updateChampIcon(){
+    if(nameInput.value){
+      champIcon.src=champIconURL(nameInput.value);
+    }
+  }
+
+  updateChampIcon();
+
+  nameInput.oninput=()=>{
+    saved.name=nameInput.value;
+    updateChampIcon();
+    saveState();
+  };
+
+  function haste(){
     return (boots?10:0)+(cosmic?18:0)+(crimson?20:0);
   }
 
-  function getCD(spell) {
-    const base = spell.name === "Teleport"
-      ? teleportBase(level)
-      : spell.cd;
-    return adjustedCooldown(base, haste());
+  function getCD(spell){
+    const base=spell.name==="Teleport"
+      ?teleportBase(level)
+      :spell.cd;
+    return adjustedCooldown(base,haste());
   }
 
-  function updateDisplay(timer, element) {
-    if (timer.remaining > 0) {
-      element.textContent = formatTime(timer.remaining);
-      if (timer.remaining <= 10) {
-        element.className = "timer warning";
-      } else {
-        element.className = "timer active";
+  function updateDisplay(timer,element,index){
+    if(timer.remaining>0){
+      element.textContent=formatTime(timer.remaining);
+      if(timer.remaining<=10){
+        element.className="timer warning";
+      }else{
+        element.className="timer active";
       }
-    } else {
-      element.textContent = "Ready";
-      element.className = "timer ready";
+    }else{
+      element.textContent="Ready";
+      element.className="timer ready";
     }
-    saved.remaining1 = timer1.remaining;
-    saved.remaining2 = timer2.remaining;
+    if(index===1)saved.remaining1=timer1.remaining;
+    if(index===2)saved.remaining2=timer2.remaining;
   }
 
-  function updateSpellNames() {
-    s1.textContent = spellList[spellIndex1].name;
-    s2.textContent = spellList[spellIndex2].name;
+  function updateSpellIcons(){
+    i1.src=spellIconURL(spellList[spellIndex1].icon);
+    i2.src=spellIconURL(spellList[spellIndex2].icon);
   }
 
-  nameInput.oninput = () => {
-    saved.name = nameInput.value;
-    saveState();
-  };
-
-  enemy.querySelector(".minus").onpointerdown = () => {
-    if(level>1) level--;
-    saved.level = level;
+  enemy.querySelector(".minus").onpointerdown=()=>{
+    if(level>1)level--;
+    saved.level=level;
     lvlSpan.textContent="L"+level;
     saveState();
   };
 
-  enemy.querySelector(".plus").onpointerdown = () => {
-    if(level<18) level++;
-    saved.level = level;
+  enemy.querySelector(".plus").onpointerdown=()=>{
+    if(level<18)level++;
+    saved.level=level;
     lvlSpan.textContent="L"+level;
     saveState();
   };
 
-  function toggle(el, setter, key) {
-    el.onpointerdown = () => {
+  function toggle(el,setter,key){
+    el.onpointerdown=()=>{
       setter();
       el.classList.toggle("active");
       saved[key]=!saved[key];
@@ -301,42 +351,42 @@ function createEnemy(i) {
   toggle(enemy.querySelector(".cosmic"),()=>cosmic=!cosmic,"cosmic");
   toggle(enemy.querySelector(".crimson"),()=>crimson=!crimson,"crimson");
 
-  s1.onpointerdown = () => {
+  enemy.querySelector(".s1").onpointerdown=()=>{
     spellIndex1=(spellIndex1+1)%spellList.length;
     saved.spellIndex1=spellIndex1;
-    updateSpellNames();
+    updateSpellIcons();
     saveState();
   };
 
-  s2.onpointerdown = () => {
+  enemy.querySelector(".s2").onpointerdown=()=>{
     spellIndex2=(spellIndex2+1)%spellList.length;
     saved.spellIndex2=spellIndex2;
-    updateSpellNames();
+    updateSpellIcons();
     saveState();
   };
 
-  t1.onpointerdown = () => {
+  t1.onpointerdown=()=>{
     if(timer1.remaining>0){
-      timer1.reset(()=>updateDisplay(timer1,t1));
-    } else {
-      timer1.start(getCD(spellList[spellIndex1]),()=>updateDisplay(timer1,t1));
+      timer1.reset(()=>updateDisplay(timer1,t1,1));
+    }else{
+      timer1.start(getCD(spellList[spellIndex1]),()=>updateDisplay(timer1,t1,1));
     }
   };
 
-  t2.onpointerdown = () => {
+  t2.onpointerdown=()=>{
     if(timer2.remaining>0){
-      timer2.reset(()=>updateDisplay(timer2,t2));
-    } else {
-      timer2.start(getCD(spellList[spellIndex2]),()=>updateDisplay(timer2,t2));
+      timer2.reset(()=>updateDisplay(timer2,t2,2));
+    }else{
+      timer2.start(getCD(spellList[spellIndex2]),()=>updateDisplay(timer2,t2,2));
     }
   };
 
-  updateSpellNames();
-  updateDisplay(timer1,t1);
-  updateDisplay(timer2,t2);
+  updateSpellIcons();
+  updateDisplay(timer1,t1,1);
+  updateDisplay(timer2,t2,2);
 
-  if(timer1.remaining>0) timer1.tick(()=>updateDisplay(timer1,t1));
-  if(timer2.remaining>0) timer2.tick(()=>updateDisplay(timer2,t2));
+  if(timer1.remaining>0)timer1.tick(()=>updateDisplay(timer1,t1,1));
+  if(timer2.remaining>0)timer2.tick(()=>updateDisplay(timer2,t2,2));
 
   return enemy;
 }
@@ -345,7 +395,7 @@ const app=document.getElementById("app");
 for(let i=0;i<5;i++){
   app.appendChild(createEnemy(i));
 }
+
 </script>
 </body>
 </html>
-
