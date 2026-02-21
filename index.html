@@ -229,29 +229,35 @@ function createEnemy(index) {
   enemy.querySelector('.cosmic').onchange = e => cosmic = e.target.checked;
   enemy.querySelector('.crimson').onchange = e => crimson = e.target.checked;
 
-  function setupSpell(row, timer) {
-    const select = row.querySelector('select');
-    const display = row.querySelector('.timer');
+ function setupSpell(row, timer) {
+  const select = row.querySelector('select');
+  const display = row.querySelector('.timer');
 
-    function update() {
-      if (timer.remaining > 0) {
-        display.textContent = formatTime(timer.remaining);
-        display.className = 'timer active';
-      } else {
-        display.textContent = 'Ready';
-        display.className = 'timer ready';
-      }
+  function update() {
+    if (timer.remaining > 0) {
+      display.textContent = formatTime(timer.remaining);
+      display.className = 'timer active';
+    } else {
+      display.textContent = 'Ready';
+      display.className = 'timer ready';
     }
-
-    row.onclick = () => {
-      if (timer.remaining > 0) {
-        timer.reset(update);
-      } else {
-        const cd = getCooldown(select.value);
-        timer.start(cd, update);
-      }
-    };
   }
+
+  // Prevent select from triggering timer
+  select.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+  });
+
+  // Only timer text is clickable
+  display.addEventListener('pointerdown', () => {
+    if (timer.remaining > 0) {
+      timer.reset(update);
+    } else {
+      const cd = getCooldown(select.value);
+      timer.start(cd, update);
+    }
+  });
+}
 
   setupSpell(enemy.querySelector('.spell1'), timer1);
   setupSpell(enemy.querySelector('.spell2'), timer2);
@@ -266,3 +272,4 @@ for (let i = 1; i <= 5; i++) {
 </script>
 </body>
 </html>
+
