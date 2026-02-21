@@ -1,87 +1,91 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Cooldown Tracker</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CD Tracker</title>
 <style>
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
-  background: #0e0f12;
+  background: #0d0f14;
   color: #e5e7eb;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
 .container {
-  padding: 12px;
-  max-width: 600px;
-  margin: auto;
+  padding: 6px;
 }
 
 .enemy {
-  background: #15171c;
-  padding: 14px;
-  margin-bottom: 14px;
-  border-radius: 10px;
+  background: #161a22;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  font-size: 13px;
 }
 
-.enemy-header {
+.top-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-input[type="text"] {
+.name {
+  width: 42px;
   background: transparent;
   border: none;
   color: white;
-  font-size: 16px;
   font-weight: bold;
-  width: 140px;
-}
-
-.level-controls button {
-  background: #22252b;
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  font-size: 16px;
-  border-radius: 6px;
-}
-
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  margin-right: 12px;
   font-size: 13px;
 }
 
-.toggle input {
-  margin-right: 4px;
+.level {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.level button {
+  background: #232834;
+  border: none;
+  color: white;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.toggles {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.toggle {
+  cursor: pointer;
+  opacity: 0.4;
+}
+
+.toggle.active {
+  opacity: 1;
+  color: #22c55e;
 }
 
 .spell-row {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-top: 12px;
-  background: #1b1e24;
-  padding: 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  min-height: 60px;
+  align-items: center;
+  margin-top: 4px;
 }
 
-select {
-  background: #1b1e24;
-  color: white;
-  border: none;
-  font-size: 14px;
+.spell-name {
+  cursor: pointer;
+  font-weight: 500;
+  width: 70px;
 }
 
 .timer {
+  cursor: pointer;
   font-weight: bold;
-  font-size: 18px;
 }
 
 .ready {
@@ -97,16 +101,16 @@ select {
 <div class="container" id="app"></div>
 
 <script>
-const spells = {
-  Flash: 300,
-  Ignite: 180,
-  Teleport: 0,
-  Heal: 240,
-  Exhaust: 240,
-  Ghost: 210,
-  Cleanse: 210,
-  Smite: 90
-};
+const spellList = [
+  { name: "Flash", cd: 300 },
+  { name: "Ignite", cd: 180 },
+  { name: "Teleport", cd: 0 },
+  { name: "Heal", cd: 240 },
+  { name: "Exhaust", cd: 240 },
+  { name: "Ghost", cd: 210 },
+  { name: "Cleanse", cd: 210 },
+  { name: "Smite", cd: 90 }
+];
 
 function teleportBase(level) {
   if (level <= 6) return 360;
@@ -118,10 +122,10 @@ function adjustedCooldown(base, haste) {
   return Math.round(base * (100 / (100 + haste)));
 }
 
-function formatTime(seconds) {
-  const m = Math.floor(seconds / 60).toString().padStart(2,'0');
-  const s = (seconds % 60).toString().padStart(2,'0');
-  return `${m}:${s}`;
+function formatTime(s) {
+  const m = Math.floor(s / 60).toString().padStart(2,'0');
+  const sec = (s % 60).toString().padStart(2,'0');
+  return `${m}:${sec}`;
 }
 
 class SpellTimer {
@@ -130,146 +134,163 @@ class SpellTimer {
     this.interval = null;
   }
 
-  start(duration, updateCallback) {
+  start(duration, update) {
     this.remaining = duration;
     clearInterval(this.interval);
     this.interval = setInterval(() => {
       if (this.remaining > 0) {
         this.remaining--;
-        updateCallback();
+        update();
       } else {
         clearInterval(this.interval);
-        updateCallback();
+        update();
       }
     }, 1000);
   }
 
-  reset(updateCallback) {
+  reset(update) {
     clearInterval(this.interval);
     this.remaining = 0;
-    updateCallback();
+    update();
   }
 }
 
-function createEnemy(index) {
-  const enemy = document.createElement('div');
-  enemy.className = 'enemy';
-
+function createEnemy(i) {
   let level = 1;
   let boots = false;
   let cosmic = false;
   let crimson = false;
 
+  let spellIndex1 = 0;
+  let spellIndex2 = 1;
+
   const timer1 = new SpellTimer();
   const timer2 = new SpellTimer();
 
-  function haste() {
-    return (boots ? 10 : 0)
-         + (cosmic ? 18 : 0)
-         + (crimson ? 20 : 0); // adjust if needed
-  }
-
-  function getCooldown(spellName) {
-    let base = spellName === "Teleport"
-      ? teleportBase(level)
-      : spells[spellName];
-    return adjustedCooldown(base, haste());
-  }
+  const enemy = document.createElement("div");
+  enemy.className = "enemy";
 
   enemy.innerHTML = `
-    <div class="enemy-header">
-      <input type="text" value="Enemy ${index}" />
-      <div class="level-controls">
+    <div class="top-row">
+      <input class="name" maxlength="3" value="E${i}">
+      <div class="level">
         <button class="minus">-</button>
-        <span class="lvl">Lvl 1</span>
+        <span class="lvl">L1</span>
         <button class="plus">+</button>
+      </div>
+      <div class="toggles">
+        <span class="toggle boots">ION</span>
+        <span class="toggle cosmic">COS</span>
+        <span class="toggle crimson">CRI</span>
       </div>
     </div>
 
-    <div style="margin-top:8px;">
-      <label class="toggle">
-        <input type="checkbox" class="boots" /> Ionian
-      </label>
-      <label class="toggle">
-        <input type="checkbox" class="cosmic" /> Cosmic
-      </label>
-      <label class="toggle">
-        <input type="checkbox" class="crimson" /> Crimson
-      </label>
+    <div class="spell-row">
+      <span class="spell-name s1"></span>
+      <span class="timer t1 ready">Ready</span>
     </div>
 
-    <div class="spell-row spell1">
-      <select>
-        ${Object.keys(spells).map(s=>`<option>${s}</option>`).join('')}
-      </select>
-      <div class="timer ready">Ready</div>
-    </div>
-
-    <div class="spell-row spell2">
-      <select>
-        ${Object.keys(spells).map(s=>`<option>${s}</option>`).join('')}
-      </select>
-      <div class="timer ready">Ready</div>
+    <div class="spell-row">
+      <span class="spell-name s2"></span>
+      <span class="timer t2 ready">Ready</span>
     </div>
   `;
 
-  const lvlSpan = enemy.querySelector('.lvl');
+  const lvlSpan = enemy.querySelector(".lvl");
+  const s1 = enemy.querySelector(".s1");
+  const s2 = enemy.querySelector(".s2");
+  const t1 = enemy.querySelector(".t1");
+  const t2 = enemy.querySelector(".t2");
 
-  enemy.querySelector('.minus').onclick = () => {
-    if (level > 1) level--;
-    lvlSpan.textContent = `Lvl ${level}`;
-  };
+  function haste() {
+    return (boots ? 10 : 0) +
+           (cosmic ? 18 : 0) +
+           (crimson ? 12 : 0);
+  }
 
-  enemy.querySelector('.plus').onclick = () => {
-    if (level < 18) level++;
-    lvlSpan.textContent = `Lvl ${level}`;
-  };
+  function getCD(spell) {
+    const base = spell.name === "Teleport"
+      ? teleportBase(level)
+      : spell.cd;
+    return adjustedCooldown(base, haste());
+  }
 
-  enemy.querySelector('.boots').onchange = e => boots = e.target.checked;
-  enemy.querySelector('.cosmic').onchange = e => cosmic = e.target.checked;
-  enemy.querySelector('.crimson').onchange = e => crimson = e.target.checked;
-
- function setupSpell(row, timer) {
-  const select = row.querySelector('select');
-  const display = row.querySelector('.timer');
-
-  function update() {
+  function updateDisplay(timer, element) {
     if (timer.remaining > 0) {
-      display.textContent = formatTime(timer.remaining);
-      display.className = 'timer active';
+      element.textContent = formatTime(timer.remaining);
+      element.className = "timer active";
     } else {
-      display.textContent = 'Ready';
-      display.className = 'timer ready';
+      element.textContent = "Ready";
+      element.className = "timer ready";
     }
   }
 
-  // Prevent select from triggering timer
-  select.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-  });
+  function updateSpellNames() {
+    s1.textContent = spellList[spellIndex1].name;
+    s2.textContent = spellList[spellIndex2].name;
+  }
 
-  // Only timer text is clickable
-  display.addEventListener('pointerdown', () => {
-    if (timer.remaining > 0) {
-      timer.reset(update);
+  enemy.querySelector(".minus").onpointerdown = () => {
+    if (level > 1) level--;
+    lvlSpan.textContent = "L" + level;
+  };
+
+  enemy.querySelector(".plus").onpointerdown = () => {
+    if (level < 18) level++;
+    lvlSpan.textContent = "L" + level;
+  };
+
+  function toggle(el, setter) {
+    el.onpointerdown = () => {
+      setter();
+      el.classList.toggle("active");
+    };
+  }
+
+  toggle(enemy.querySelector(".boots"), () => boots = !boots);
+  toggle(enemy.querySelector(".cosmic"), () => cosmic = !cosmic);
+  toggle(enemy.querySelector(".crimson"), () => crimson = !crimson);
+
+  s1.onpointerdown = () => {
+    spellIndex1 = (spellIndex1 + 1) % spellList.length;
+    updateSpellNames();
+  };
+
+  s2.onpointerdown = () => {
+    spellIndex2 = (spellIndex2 + 1) % spellList.length;
+    updateSpellNames();
+  };
+
+  t1.onpointerdown = () => {
+    if (timer1.remaining > 0) {
+      timer1.reset(() => updateDisplay(timer1, t1));
     } else {
-      const cd = getCooldown(select.value);
-      timer.start(cd, update);
+      timer1.start(
+        getCD(spellList[spellIndex1]),
+        () => updateDisplay(timer1, t1)
+      );
     }
-  });
-}
+  };
 
-  setupSpell(enemy.querySelector('.spell1'), timer1);
-  setupSpell(enemy.querySelector('.spell2'), timer2);
+  t2.onpointerdown = () => {
+    if (timer2.remaining > 0) {
+      timer2.reset(() => updateDisplay(timer2, t2));
+    } else {
+      timer2.start(
+        getCD(spellList[spellIndex2]),
+        () => updateDisplay(timer2, t2)
+      );
+    }
+  };
 
+  updateSpellNames();
   return enemy;
 }
 
-const app = document.getElementById('app');
+const app = document.getElementById("app");
 for (let i = 1; i <= 5; i++) {
   app.appendChild(createEnemy(i));
 }
 </script>
 </body>
 </html>
-
