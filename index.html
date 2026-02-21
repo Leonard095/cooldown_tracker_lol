@@ -13,51 +13,52 @@ body {
 }
 
 .container {
-  padding: 6px;
+  padding: 12px;
 }
 
 .enemy {
   background: #161a22;
-  padding: 6px 8px;
-  margin-bottom: 6px;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 14px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  font-size: 16px;
 }
 
 .top-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 8px;
 }
 
 .name {
-  width: 42px;
+  width: 60px;
   background: transparent;
   border: none;
   color: white;
   font-weight: bold;
-  font-size: 13px;
+  font-size: 18px;
 }
 
 .level {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 .level button {
   background: #232834;
   border: none;
   color: white;
-  font-size: 12px;
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: 18px;
+  padding: 4px 10px;
+  border-radius: 6px;
 }
 
 .toggles {
   display: flex;
-  gap: 6px;
-  font-size: 11px;
+  gap: 10px;
+  font-size: 13px;
 }
 
 .toggle {
@@ -74,17 +75,18 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 4px;
+  margin-top: 10px;
 }
 
 .spell-name {
   cursor: pointer;
-  font-weight: 500;
-  width: 70px;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .timer {
   cursor: pointer;
+  font-size: 22px;
   font-weight: bold;
 }
 
@@ -94,6 +96,10 @@ body {
 
 .active {
   color: #ef4444;
+}
+
+.warning {
+  color: orange;
 }
 </style>
 </head>
@@ -129,21 +135,27 @@ function formatTime(s) {
 }
 
 class SpellTimer {
-  constructor() {
-    this.remaining = 0;
+  constructor(savedRemaining = 0) {
+    this.remaining = savedRemaining;
     this.interval = null;
   }
 
   start(duration, update) {
     this.remaining = duration;
+    this.tick(update);
+  }
+
+  tick(update) {
     clearInterval(this.interval);
     this.interval = setInterval(() => {
       if (this.remaining > 0) {
         this.remaining--;
         update();
+        saveState();
       } else {
         clearInterval(this.interval);
         update();
+        saveState();
       }
     }, 1000);
   }
@@ -152,50 +164,72 @@ class SpellTimer {
     clearInterval(this.interval);
     this.remaining = 0;
     update();
+    saveState();
   }
 }
 
+let enemiesState = JSON.parse(localStorage.getItem("cdTracker")) || [];
+
+function saveState() {
+  localStorage.setItem("cdTracker", JSON.stringify(enemiesState));
+}
+
 function createEnemy(i) {
-  let level = 1;
-  let boots = false;
-  let cosmic = false;
-  let crimson = false;
 
-  let spellIndex1 = 0;
-  let spellIndex2 = 1;
+  const saved = enemiesState[i] || {
+    name: "E" + (i+1),
+    level: 1,
+    boots: false,
+    cosmic: false,
+    crimson: false,
+    spellIndex1: 0,
+    spellIndex2: 1,
+    remaining1: 0,
+    remaining2: 0
+  };
 
-  const timer1 = new SpellTimer();
-  const timer2 = new SpellTimer();
+  enemiesState[i] = saved;
+
+  let level = saved.level;
+  let boots = saved.boots;
+  let cosmic = saved.cosmic;
+  let crimson = saved.crimson;
+  let spellIndex1 = saved.spellIndex1;
+  let spellIndex2 = saved.spellIndex2;
+
+  const timer1 = new SpellTimer(saved.remaining1);
+  const timer2 = new SpellTimer(saved.remaining2);
 
   const enemy = document.createElement("div");
   enemy.className = "enemy";
 
   enemy.innerHTML = `
     <div class="top-row">
-      <input class="name" maxlength="3" value="E${i}">
+      <input class="name" maxlength="3" value="${saved.name}">
       <div class="level">
         <button class="minus">-</button>
-        <span class="lvl">L1</span>
+        <span class="lvl">L${level}</span>
         <button class="plus">+</button>
       </div>
       <div class="toggles">
-        <span class="toggle boots">ION</span>
-        <span class="toggle cosmic">COS</span>
-        <span class="toggle crimson">CRI</span>
+        <span class="toggle boots ${boots?'active':''}">ION</span>
+        <span class="toggle cosmic ${cosmic?'active':''}">COS</span>
+        <span class="toggle crimson ${crimson?'active':''}">CRI</span>
       </div>
     </div>
 
     <div class="spell-row">
       <span class="spell-name s1"></span>
-      <span class="timer t1 ready">Ready</span>
+      <span class="timer t1">Ready</span>
     </div>
 
     <div class="spell-row">
       <span class="spell-name s2"></span>
-      <span class="timer t2 ready">Ready</span>
+      <span class="timer t2">Ready</span>
     </div>
   `;
 
+  const nameInput = enemy.querySelector(".name");
   const lvlSpan = enemy.querySelector(".lvl");
   const s1 = enemy.querySelector(".s1");
   const s2 = enemy.querySelector(".s2");
@@ -203,9 +237,7 @@ function createEnemy(i) {
   const t2 = enemy.querySelector(".t2");
 
   function haste() {
-    return (boots ? 10 : 0) +
-           (cosmic ? 18 : 0) +
-           (crimson ? 20 : 0);
+    return (boots?10:0)+(cosmic?18:0)+(crimson?20:0);
   }
 
   function getCD(spell) {
@@ -218,11 +250,17 @@ function createEnemy(i) {
   function updateDisplay(timer, element) {
     if (timer.remaining > 0) {
       element.textContent = formatTime(timer.remaining);
-      element.className = "timer active";
+      if (timer.remaining <= 10) {
+        element.className = "timer warning";
+      } else {
+        element.className = "timer active";
+      }
     } else {
       element.textContent = "Ready";
       element.className = "timer ready";
     }
+    saved.remaining1 = timer1.remaining;
+    saved.remaining2 = timer2.remaining;
   }
 
   function updateSpellNames() {
@@ -230,68 +268,82 @@ function createEnemy(i) {
     s2.textContent = spellList[spellIndex2].name;
   }
 
+  nameInput.oninput = () => {
+    saved.name = nameInput.value;
+    saveState();
+  };
+
   enemy.querySelector(".minus").onpointerdown = () => {
-    if (level > 1) level--;
-    lvlSpan.textContent = "L" + level;
+    if(level>1) level--;
+    saved.level = level;
+    lvlSpan.textContent="L"+level;
+    saveState();
   };
 
   enemy.querySelector(".plus").onpointerdown = () => {
-    if (level < 18) level++;
-    lvlSpan.textContent = "L" + level;
+    if(level<18) level++;
+    saved.level = level;
+    lvlSpan.textContent="L"+level;
+    saveState();
   };
 
-  function toggle(el, setter) {
+  function toggle(el, setter, key) {
     el.onpointerdown = () => {
       setter();
       el.classList.toggle("active");
+      saved[key]=!saved[key];
+      saveState();
     };
   }
 
-  toggle(enemy.querySelector(".boots"), () => boots = !boots);
-  toggle(enemy.querySelector(".cosmic"), () => cosmic = !cosmic);
-  toggle(enemy.querySelector(".crimson"), () => crimson = !crimson);
+  toggle(enemy.querySelector(".boots"),()=>boots=!boots,"boots");
+  toggle(enemy.querySelector(".cosmic"),()=>cosmic=!cosmic,"cosmic");
+  toggle(enemy.querySelector(".crimson"),()=>crimson=!crimson,"crimson");
 
   s1.onpointerdown = () => {
-    spellIndex1 = (spellIndex1 + 1) % spellList.length;
+    spellIndex1=(spellIndex1+1)%spellList.length;
+    saved.spellIndex1=spellIndex1;
     updateSpellNames();
+    saveState();
   };
 
   s2.onpointerdown = () => {
-    spellIndex2 = (spellIndex2 + 1) % spellList.length;
+    spellIndex2=(spellIndex2+1)%spellList.length;
+    saved.spellIndex2=spellIndex2;
     updateSpellNames();
+    saveState();
   };
 
   t1.onpointerdown = () => {
-    if (timer1.remaining > 0) {
-      timer1.reset(() => updateDisplay(timer1, t1));
+    if(timer1.remaining>0){
+      timer1.reset(()=>updateDisplay(timer1,t1));
     } else {
-      timer1.start(
-        getCD(spellList[spellIndex1]),
-        () => updateDisplay(timer1, t1)
-      );
+      timer1.start(getCD(spellList[spellIndex1]),()=>updateDisplay(timer1,t1));
     }
   };
 
   t2.onpointerdown = () => {
-    if (timer2.remaining > 0) {
-      timer2.reset(() => updateDisplay(timer2, t2));
+    if(timer2.remaining>0){
+      timer2.reset(()=>updateDisplay(timer2,t2));
     } else {
-      timer2.start(
-        getCD(spellList[spellIndex2]),
-        () => updateDisplay(timer2, t2)
-      );
+      timer2.start(getCD(spellList[spellIndex2]),()=>updateDisplay(timer2,t2));
     }
   };
 
   updateSpellNames();
+  updateDisplay(timer1,t1);
+  updateDisplay(timer2,t2);
+
+  if(timer1.remaining>0) timer1.tick(()=>updateDisplay(timer1,t1));
+  if(timer2.remaining>0) timer2.tick(()=>updateDisplay(timer2,t2));
+
   return enemy;
 }
 
-const app = document.getElementById("app");
-for (let i = 1; i <= 5; i++) {
+const app=document.getElementById("app");
+for(let i=0;i<5;i++){
   app.appendChild(createEnemy(i));
 }
 </script>
 </body>
 </html>
-
