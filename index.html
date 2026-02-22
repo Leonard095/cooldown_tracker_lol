@@ -405,14 +405,20 @@ function createEnemy(i){
   return enemy;
 }
 
-const app=document.getElementById("app");
-for(let i=0;i<5;i++){
-  app.appendChild(createEnemy(i));
+function initApp(){
+  const app=document.getElementById("app");
+  app.innerHTML="";
+  for(let i=0;i<5;i++){
+    app.appendChild(createEnemy(i));
+  }
 }
+
+getLatestPatch();
 
 </script>
 </body>
 </html>
+
 
 
 
