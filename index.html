@@ -118,7 +118,20 @@ body {
 
 <script>
 
-const patch = "14.4.1"; // fallback
+let patch = null;
+
+async function getLatestPatch() {
+  try {
+    const res = await fetch("https://ddragon.leagueoflegends.com/api/versions.json");
+    const versions = await res.json();
+    patch = versions[0]; // latest live patch
+    initApp();
+  } catch (e) {
+    console.error("Failed to fetch patch version:", e);
+    patch = "14.1.1"; // fallback so app never bricks
+    initApp();
+  }
+}
 
 fetch('https://ddragon.leagueoflegends.com/api/versions.json')
   .then(res => res.json())
@@ -400,6 +413,7 @@ for(let i=0;i<5;i++){
 </script>
 </body>
 </html>
+
 
 
 
